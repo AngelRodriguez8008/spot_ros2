@@ -388,24 +388,9 @@ class SpotROS(Node):
             self.cam_wrapper: Optional[SpotCamWrapper] = None
         else:
             # create SpotWrapper if not mocking
-            self.spot_wrapper = SpotWrapper(
-                username=self.username,
-                password=self.password,
-                hostname=self.ip,
-                port=self.port,
-                robot_name=self.name,
-                logger=self.wrapper_logger,
-                start_estop=self.start_estop.value,
-                estop_timeout=self.estop_timeout.value,
-                rates=self.rates,
-                callbacks=self.callbacks,
-                use_take_lease=self.use_take_lease.value,
-                get_lease_on_action=self.get_lease_on_action.value,
-                continually_try_stand=self.continually_try_stand.value,
-                rgb_cameras=self.rgb_cameras.value,
-                cert_resource_glob=self.certificate,
-            )
-            if not self.spot_wrapper.is_valid:
+            self.init_spot_wrapper() # Angel: Allow extend the SpotROS, class overriding this method
+            
+            if self.spot_wrapper is None or not self.spot_wrapper.is_valid:
                 return
 
             self.spot_cam_wrapper = None
@@ -1002,6 +987,27 @@ class SpotROS(Node):
             callback_group=self.group,
         )
 
+    # Angel: Allow extend the SpotROS, class overriding this method
+    # Ex. adding callbacks, before to initialize    
+    def init_spot_wrapper(self):
+        self.spot_wrapper = SpotWrapper(
+            username=self.username,
+            password=self.password,
+            hostname=self.ip,
+            port=self.port,
+            robot_name=self.name,
+            logger=self.wrapper_logger,
+            start_estop=self.start_estop.value,
+            estop_timeout=self.estop_timeout.value,
+            rates=self.rates,
+            callbacks=self.callbacks,
+            use_take_lease=self.use_take_lease.value,
+            get_lease_on_action=self.get_lease_on_action.value,
+            continually_try_stand=self.continually_try_stand.value,
+            rgb_cameras=self.rgb_cameras.value,
+            cert_resource_glob=self.certificate,
+        )
+        
     def take_lease_callback(self, request: Trigger.Request, response: Trigger.Response) -> Trigger.Response:
         self.get_logger().info("Incoming request to take a new lease.")
         if self.spot_wrapper is None:

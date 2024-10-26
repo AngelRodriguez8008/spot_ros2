@@ -1,27 +1,38 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:if value="$(optenv SPOT_PACK 0)">
 
-  <xacro:if value="$(optenv SPOT_PACK 0)">
+    <xacro:property name="velodyne_pos" value="$(optenv SPOT_VELODYNE_XYZ 0 0 0)"/>
+    <xacro:property name="pp_x" value="-0.15"/>
+    <xacro:property name="pp_z" value="0.08"/>
+    <xacro:property name="lp_z" value="0.0725"/>
+    <xacro:property name="vp_x" value="${velodyne_pos.split(' ')[0]}"/>
+    <xacro:property name="vp_z" value="${velodyne_pos.split(' ')[2]}"/>
+    <xacro:property name="vp_pos" value="0 0 ${vp_z + pp_z + .01}"/>
+
+    <xacro:property name="pack_scale" value=".3 .65 .5"/>
+    <xacro:property name="lidar_mount_scale" value=".5 .45 .65"/>
+     
     <joint name="pack_mount_joint" type="fixed">
-      <parent link="base_link"/>
+      <parent link="${tf_prefix}body"/>
       <child link="pack_mount"/>
-      <origin xyz="-0.019986 0 0.093662" rpy="0 0 0"/>
+      <origin xyz="${pp_x} 0 ${pp_z}" rpy="0 0 0"/>
     </joint>
 
     <link name="pack_mount">
       <visual>
         <geometry>
-          <mesh filename="package://spot_description/meshes/base/visual/pack_top.obj"/>
+          <mesh filename="package://spot_description/meshes/base/visual/pack_top.obj" scale="${pack_scale}"/>
         </geometry>
       </visual>
       <visual>
         <geometry>
-          <mesh filename="package://spot_description/meshes/base/visual/pack_body.obj"/>
+          <mesh filename="package://spot_description/meshes/base/visual/pack_body.obj" scale="${pack_scale}"/>
         </geometry>
       </visual>
       <collision>
         <geometry>
-          <mesh filename="package://spot_description/meshes/base/visual/pack_body.obj"/>
+          <mesh filename="package://spot_description/meshes/base/visual/pack_body.obj" scale="${pack_scale}"/>
         </geometry>
       </collision>
     </link>
@@ -31,18 +42,18 @@
     <joint name="lidar_mount_joint" type="fixed">
       <parent link="pack_mount"/>
       <child link="lidar_mount"/>
-      <origin xyz="0.015 0 0.149285" rpy="0 0 0"/>
+      <origin xyz="${vp_x - pp_x} 0 ${lp_z}" rpy="0 0 0"/>
     </joint>
 
     <link name="lidar_mount">
       <visual>
         <geometry>
-          <mesh filename="package://spot_description/meshes/base/visual/lidar_mount.obj"/>
+          <mesh filename="package://spot_description/meshes/base/visual/lidar_mount.obj" scale="${lidar_mount_scale}"/>
         </geometry>
       </visual>
       <collision>
         <geometry>
-          <mesh filename="package://spot_description/meshes/base/collision/lidar_mount_collision.stl"/>
+          <mesh filename="package://spot_description/meshes/base/collision/lidar_mount_collision.stl" scale="${lidar_mount_scale}"/>
         </geometry>
       </collision>
     </link>
@@ -51,7 +62,7 @@
       <!-- Use the Velodyne macro for the actual sensor -->
       <xacro:include filename="$(find velodyne_description)/urdf/VLP-16.urdf.xacro" />
       <xacro:VLP-16 parent="lidar_mount">
-        <origin xyz="$(optenv SPOT_VELODYNE_XYZ 0 0 0)" rpy="$(optenv SPOT_VELODYNE_RPY 0 0 0)" />
+        <origin xyz="${vp_pos}" rpy="$(optenv SPOT_VELODYNE_RPY 0 0 0)"/>
       </xacro:VLP-16>
 
       <!-- Add the protective cage -->
@@ -61,7 +72,6 @@
             <mesh filename="package://spot_description/meshes/base/collision/velodyne_cage.stl" scale="0.001 0.001 0.001" />
           </geometry>
           <origin xyz="0 0 0" rpy="0 0 0" />
-          <material name="black" />
         </visual>
         <collision>
           <geometry>
@@ -71,9 +81,9 @@
         </collision>
       </link>
       <joint name="velodyne_cage_joint" type="fixed">
-        <parent link="lidar_mount" />
-        <child link="velodyne_cage" />
-        <origin xyz="$(optenv SPOT_VELODYNE_XYZ 0 0 0)" rpy="$(optenv SPOT_VELODYNE_RPY 0 0 0)" />
+        <parent link="lidar_mount"/>
+        <child link="velodyne_cage"/>
+        <origin xyz="${vp_pos}" rpy="$(optenv SPOT_VELODYNE_RPY 0 0 0)"/>
       </joint>
     </xacro:if>
   </xacro:if>
