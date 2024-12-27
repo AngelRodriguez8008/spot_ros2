@@ -3,15 +3,26 @@
 import logging
 import os
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import yaml
 from launch.actions import DeclareLaunchArgument
+from synchros2.launch.actions import DeclareBooleanLaunchArgument
 
 from spot_wrapper.wrapper import SpotWrapper
 
 COLOR_END = "\33[0m"
 COLOR_YELLOW = "\33[33m"
+
+# The following constants are parameters we are interested in pulling from our config yaml file
+_USERNAME: Literal["username"] = "username"
+_PASSWORD: Literal["password"] = "password"
+_HOSTNAME: Literal["hostname"] = "hostname"
+_CERTIFICATE: Literal["certificate"] = "certificate"
+_PORT: Literal["port"] = "port"
+_CAMERAS_USED: Literal["cameras_used"] = "cameras_used"
+_GRIPPERLESS: Literal["gripperless"] = "gripperless"
+
 
 IMAGE_PUBLISHER_ARGS = [
     "depth_registered_mode",
@@ -57,10 +68,9 @@ def declare_image_publisher_args() -> List[DeclareLaunchArgument]:
         )
     )
     launch_args.append(
-        DeclareLaunchArgument(
+        DeclareBooleanLaunchArgument(
             "publish_point_clouds",
-            default_value="False",
-            choices=["True", "true", "False", "false"],
+            default_value=False,
             description=(
                 "If true, create and publish point clouds for each depth registered and RGB camera pair. Requires that"
                 " the depth_register_mode launch argument is set to a value that is not `disable`."
@@ -68,26 +78,23 @@ def declare_image_publisher_args() -> List[DeclareLaunchArgument]:
         )
     )
     launch_args.append(
-        DeclareLaunchArgument(
+        DeclareBooleanLaunchArgument(
             "uncompress_images",
-            default_value="True",
-            choices=["True", "true", "False", "false"],
+            default_value=True,
             description="Choose whether to publish uncompressed images from Spot.",
         )
     )
     launch_args.append(
-        DeclareLaunchArgument(
+        DeclareBooleanLaunchArgument(
             "publish_compressed_images",
-            default_value="False",
-            choices=["True", "true", "False", "false"],
+            default_value=False,
             description="Choose whether to publish compressed images from Spot.",
         )
     )
     launch_args.append(
-        DeclareLaunchArgument(
+        DeclareBooleanLaunchArgument(
             "stitch_front_images",
-            default_value="False",
-            choices=["True", "true", "False", "false"],
+            default_value=False,
             description=(
                 "Choose whether to publish a stitched image constructed from Spot's front left and right cameras."
             ),
@@ -151,16 +158,16 @@ def get_login_parameters(config_file_path: str) -> Tuple[str, str, str, Optional
 
     ros_params = get_ros_param_dict(config_file_path)
     # only set username/password/hostname if they were not already set as environment variables.
-    if not username and "username" in ros_params:
-        username = ros_params["username"]
-    if not password and "password" in ros_params:
-        password = ros_params["password"]
-    if not hostname and "hostname" in ros_params:
-        hostname = ros_params["hostname"]
-    if not port and "port" in ros_params:
-        port = ros_params["port"]
-    if not certificate and "certificate" in ros_params:
-        certificate = ros_params["certificate"]
+    if not username and _USERNAME in ros_params:
+        username = ros_params[_USERNAME]
+    if not password and _PASSWORD in ros_params:
+        password = ros_params[_PASSWORD]
+    if not hostname and _HOSTNAME in ros_params:
+        hostname = ros_params[_HOSTNAME]
+    if not port and _PORT in ros_params:
+        port = ros_params[_PORT]
+    if not certificate and _CERTIFICATE in ros_params:
+        certificate = ros_params[_CERTIFICATE]
     if (not username) or (not password) or (not hostname):
         raise ValueError(
             "One or more of your login credentials has not been specified! Got invalid values of "
@@ -170,11 +177,20 @@ def get_login_parameters(config_file_path: str) -> Tuple[str, str, str, Optional
     return username, password, hostname, port, certificate
 
 
-def default_camera_sources(has_arm: bool) -> List[str]:
+def default_camera_sources(has_arm: bool, gripperless: bool) -> List[str]:
     camera_sources = ["frontleft", "frontright", "left", "right", "back"]
-    if has_arm:
+    if has_arm and not gripperless:
         camera_sources.append("hand")
     return camera_sources
+
+
+def get_gripperless(ros_params: Dict[str, Any]) -> bool:
+    """Read the ros parameters to get the value of the gripperless parameter. Defaults to False if not set."""
+    gripperless = False
+    if _GRIPPERLESS in ros_params:
+        if isinstance(ros_params[_GRIPPERLESS], bool):
+            gripperless = ros_params[_GRIPPERLESS]
+    return gripperless
 
 
 def get_camera_sources_from_ros_params(ros_params: Dict[str, Any], has_arm: bool) -> List[str]:
@@ -191,9 +207,10 @@ def get_camera_sources_from_ros_params(ros_params: Dict[str, Any], has_arm: bool
     Returns:
         List[str]: List of cameras the driver will stream from.
     """
-    default_sources = default_camera_sources(has_arm)
-    if "cameras_used" in ros_params:
-        camera_sources = ros_params["cameras_used"]
+    gripperless = get_gripperless(ros_params)
+    default_sources = default_camera_sources(has_arm, gripperless)
+    if _CAMERAS_USED in ros_params:
+        camera_sources = ros_params[_CAMERAS_USED]
         if isinstance(camera_sources, List):
             # check if the user inputted any camera that's not in the default sources.
             invalid_cameras = [cam for cam in camera_sources if cam not in default_sources]
@@ -231,6 +248,7 @@ def spot_has_arm(config_file_path: str, spot_name: str) -> bool:
     """
     logger = logging.getLogger("spot_driver_launch")
     username, password, hostname, port, certificate = get_login_parameters(config_file_path)
+    gripperless = get_gripperless(get_ros_param_dict(config_file_path))
     spot_wrapper = SpotWrapper(
         username=username,
         password=password,
@@ -239,5 +257,6 @@ def spot_has_arm(config_file_path: str, spot_name: str) -> bool:
         cert_resource_glob=certificate,
         robot_name=spot_name,
         logger=logger,
+        gripperless=gripperless,
     )
     return spot_wrapper.has_arm()

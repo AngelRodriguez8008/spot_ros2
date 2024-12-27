@@ -40,9 +40,12 @@ class ParameterInterfaceBase {
   virtual bool getPublishDepthImages() const = 0;
   virtual bool getPublishDepthRegisteredImages() const = 0;
   virtual std::string getPreferredOdomFrame() const = 0;
+  virtual std::string getTFRoot() const = 0;
   virtual std::string getSpotName() const = 0;
-  virtual std::set<spot_ros2::SpotCamera> getDefaultCamerasUsed(bool has_arm) const = 0;
-  virtual tl::expected<std::set<spot_ros2::SpotCamera>, std::string> getCamerasUsed(bool has_arm) const = 0;
+  virtual bool getGripperless() const = 0;
+  virtual std::set<spot_ros2::SpotCamera> getDefaultCamerasUsed(bool has_arm, bool gripperless) const = 0;
+  virtual tl::expected<std::set<spot_ros2::SpotCamera>, std::string> getCamerasUsed(bool has_arm,
+                                                                                    bool gripperless) const = 0;
 
  protected:
   // These are the definitions of the default values for optional parameters.
@@ -57,7 +60,9 @@ class ParameterInterfaceBase {
   static constexpr bool kDefaultPublishDepthImages{true};
   static constexpr bool kDefaultPublishDepthRegisteredImages{true};
   static constexpr auto kDefaultPreferredOdomFrame = "odom";
-  static constexpr auto kDefaultCamerasUsedWithoutArm = {"frontleft", "frontright", "left", "right", "back"};
-  static constexpr auto kDefaultCamerasUsedWithArm = {"frontleft", "frontright", "left", "right", "back", "hand"};
+  static constexpr auto kDefaultTFRoot = "odom";
+  static constexpr bool kDefaultGripperless{false};
+  static constexpr auto kCamerasWithoutHand = {"frontleft", "frontright", "left", "right", "back"};
+  static constexpr auto kCamerasWithHand = {"frontleft", "frontright", "left", "right", "back", "hand"};
 };
 }  // namespace spot_ros2
